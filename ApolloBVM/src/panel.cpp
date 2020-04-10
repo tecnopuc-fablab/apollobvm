@@ -21,7 +21,6 @@ void SplashPanel::start() {
 
   // Clear display.
   _disp_ptr->clearDisplay();
-  //_disp_ptr->print("hi");
 
   // Display each line.
   for (int i = 0; i < 4; i++) {
@@ -37,10 +36,11 @@ Panel* SplashPanel::update() {
   return _next_ptr;
 }
 
-EditPanel::EditPanel(NhdDisplay* disp_ptr, Encoder* encoder_ptr, ButtonManager* em_button_ptr, ButtonManager* stop_button_ptr, VentSettings* vs_ptr, String top_text, Panel** run_panel_ptr, Panel** stop_panel_ptr) :
+EditPanel::EditPanel(NhdDisplay* disp_ptr, Encoder* encoder_ptr, ButtonManager* em_button_ptr, ButtonManager* stop_button_ptr, VentSettings* vs_ptr, VentLimits* vl_ptr, String top_text, Panel** run_panel_ptr, Panel** stop_panel_ptr) :
   Panel{disp_ptr, encoder_ptr, em_button_ptr, stop_button_ptr, vs_ptr},
   _top_text(top_text),
   _run_panel_d_ptr(run_panel_ptr),
+  _vl_ptr(vl_ptr),
   _stop_panel_d_ptr(stop_panel_ptr) {
     // Build new encoder manager with 4 selections.
     _em_ptr = new EncoderManager(encoder_ptr, 4);
@@ -84,7 +84,6 @@ void EditPanel::start() {
 
   // Mark that the user hasn't made a change.
   _made_change = false;
-  
 }
 
 Panel* EditPanel::update() {
@@ -105,12 +104,14 @@ Panel* EditPanel::update() {
     if (_row == 0) {
 
       if (_made_change) {
+
         // Reset time when endering edit panel.
         _vs_ptr->hours = 0;
         _vs_ptr->minute = 0;
         _vs_ptr->seconds = 0;
       }
 
+      // Close the encoder manager and start runnning the device.
       _em_ptr->close();
       return _run_panel_ptr;
     }
@@ -128,18 +129,18 @@ Panel* EditPanel::update() {
     switch (_row) {
       // Set selections for tidal volume.
       case 1:
-        num_selections = (_max_tidal_volume - _min_tidal_volume) / _delta_tidal_volume + 1;
-        starting_selection = (_vs_ptr->tidal_volume - _min_tidal_volume) / _delta_tidal_volume;
+        num_selections = (_vl_ptr->max_tidal_volume - _vl_ptr->min_tidal_volume) / _vl_ptr->delta_tidal_volume + 1;
+        starting_selection = (_vs_ptr->tidal_volume - _vl_ptr->min_tidal_volume) / _vl_ptr->delta_tidal_volume;
         break;
       // Set selections for respiration rate.
       case 2:
-        num_selections = (_max_respiration_rate - _min_respiration_rate) / _delta_respiration_rate + 1;
-        starting_selection = (_vs_ptr->respiration_rate - _min_respiration_rate) / _delta_respiration_rate;
+        num_selections = (_vl_ptr->max_respiration_rate - _vl_ptr->min_respiration_rate) / _vl_ptr->delta_respiration_rate + 1;
+        starting_selection = (_vs_ptr->respiration_rate - _vl_ptr->min_respiration_rate) / _vl_ptr->delta_respiration_rate;
         break;
       // Set selections for i:e ratio.
       case 3:
-        num_selections = (_max_exhale - _min_exhale) / _delta_exhale + 1;
-        starting_selection = (_vs_ptr->exhale - _min_exhale) / _delta_exhale;
+        num_selections = (_vl_ptr->max_exhale - _vl_ptr->min_exhale) / _vl_ptr->delta_exhale + 1;
+        starting_selection = (_vs_ptr->exhale - _vl_ptr->min_exhale) / _vl_ptr->delta_exhale;
         break;
     }
 
@@ -163,8 +164,9 @@ Panel* EditPanel::update() {
       switch (_row) {
         // Edit tidal volume.
         case 1:
+          
           // Calculate new tidal volume amount.
-          _vs_ptr->tidal_volume = _min_tidal_volume + _em_ptr->getSelection() * _delta_tidal_volume;
+          _vs_ptr->tidal_volume = _vl_ptr->min_tidal_volume + _em_ptr->getSelection() * _vl_ptr->delta_tidal_volume;
 
           // Write to the display.
           _disp_ptr->setCursor(1 + _tv_text_length, 1);
@@ -173,8 +175,9 @@ Panel* EditPanel::update() {
           
         // Edit respiration rate to new value.
         case 2:
+
           // Calculate new respitory rate.
-          _vs_ptr->respiration_rate = _min_respiration_rate + _em_ptr->getSelection() * _delta_respiration_rate;
+          _vs_ptr->respiration_rate = _vl_ptr->min_respiration_rate + _em_ptr->getSelection() * _vl_ptr->delta_respiration_rate;
           
           // Write to the display.
           _disp_ptr->setCursor(1 + _rr_text_length, 2);
@@ -183,8 +186,9 @@ Panel* EditPanel::update() {
 
         // Edit i:e ratio.
         case 3:
+
           // Calculate new i:e ratio.
-          _vs_ptr->exhale = _min_exhale + _em_ptr->getSelection() * _delta_exhale;
+          _vs_ptr->exhale = _vl_ptr->min_exhale + _em_ptr->getSelection() * _vl_ptr->delta_exhale;
 
           // Write to the display.
           _disp_ptr->setCursor(1 + _i_e_text_length, 3);
@@ -217,6 +221,7 @@ Panel* EditPanel::update() {
    
     // Check if we've moved the cursor.
     if (_em_ptr->getSelection() != _row) {
+
       // Remove old cursor on the display.
       _disp_ptr->setCursor(0, _row);
       _disp_ptr->remove();
@@ -247,7 +252,6 @@ void RunningPanel::start() {
   // Dereference double pointer to panels.
   _apply_panel_ptr = *_apply_panel_d_ptr;  
   _stop_panel_ptr = *_stop_panel_d_ptr;
-
 
   // Change mode to load new settings.
   _vs_ptr->mode = 'L';
@@ -311,7 +315,6 @@ Panel* RunningPanel::update() {
   return 0;
 }
 
-// TODO add constructor etc
 PausePanel::PausePanel(NhdDisplay* disp_ptr, Encoder* encoder_ptr, ButtonManager* em_button_ptr, ButtonManager* stop_button_ptr, VentSettings* vs_ptr, Panel** apply_panel_ptr, Panel** run_panel_ptr) :
   Panel{disp_ptr, encoder_ptr, em_button_ptr, stop_button_ptr, vs_ptr},
   _apply_panel_d_ptr(apply_panel_ptr), 
@@ -361,7 +364,6 @@ void PausePanel::start() {
   // Set cursor over R in Run.
   _disp_ptr->setCursor(_text_length_to_run, 0);
   _disp_ptr->blinkingOn();
-
 }
 
 Panel* PausePanel::update() {
